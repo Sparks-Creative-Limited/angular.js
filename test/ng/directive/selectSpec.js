@@ -218,7 +218,7 @@ describe('select', function() {
 
         it('should not break if both the select and repeater models change at once', function() {
           scope.robots = ['c3p0', 'r2d2'];
-          scope.robot = 'c3p0'
+          scope.robot = 'c3p0';
           compile('<select ng-model="robot">' +
                     '<option value="">--select--</option>' +
                     '<option ng-repeat="r in robots">{{r}}</option>' +
@@ -494,7 +494,7 @@ describe('select', function() {
     it('should throw when not formated "? for ? in ?"', function() {
       expect(function() {
           compile('<select ng-model="selected" ng-options="i dont parse"></select>');
-        }).toThrowMatching(/^\[ngOptions:iexp\] Expected expression in form of/);
+        }).toThrowMinErr('ngOptions', 'iexp', /Expected expression in form of/);
     });
 
 
@@ -692,6 +692,67 @@ describe('select', function() {
       expect(jqLite(element.find('option')[0]).text()).toEqual('blank');
     });
 
+    it('should ignore $ and $$ properties', function() {
+      createSelect({
+        'ng-options': 'key as value for (key, value) in object',
+        'ng-model': 'selected'
+      });
+
+      scope.$apply(function() {
+        scope.object = {'regularProperty': 'visible', '$$private': 'invisible', '$property': 'invisible'};
+        scope.selected = 'regularProperty';
+      });
+
+      var options = element.find('option');
+      expect(options.length).toEqual(1);
+      expect(sortedHtml(options[0])).toEqual('<option value="regularProperty">visible</option>');
+    });
+
+    it('should allow expressions over multiple lines', function() {
+      scope.isNotFoo = function(item) {
+        return item.name !== 'Foo';
+      };
+
+      createSelect({
+        'ng-options': 'key.id\n' +
+          'for key in object\n' +
+          '| filter:isNotFoo',
+        'ng-model': 'selected'
+      });
+
+      scope.$apply(function() {
+        scope.object = [{'id': 1, 'name': 'Foo'},
+                        {'id': 2, 'name': 'Bar'},
+                        {'id': 3, 'name': 'Baz'}];
+        scope.selected = scope.object[0];
+      });
+
+      var options = element.find('option');
+      expect(options.length).toEqual(3);
+      expect(sortedHtml(options[1])).toEqual('<option value="0">2</option>');
+      expect(sortedHtml(options[2])).toEqual('<option value="1">3</option>');
+    });
+
+    it('should not update selected property of an option element on digest with no change event',
+        function() {
+      createSingleSelect();
+
+      scope.$apply(function() {
+        scope.values = [{name: 'A'}, {name: 'B'}, {name: 'C'}];
+        scope.selected = scope.values[0];
+      });
+
+      var options = element.find('option');
+      var optionToSelect = options.eq(1);
+
+      expect(optionToSelect.text()).toBe('B');
+
+      optionToSelect.prop('selected', true);
+      scope.$digest();
+
+      expect(optionToSelect.prop('selected')).toBe(true);
+      expect(scope.selected).toBe(scope.values[0]);
+    });
 
     describe('binding', function() {
 
@@ -1145,7 +1206,7 @@ describe('select', function() {
 
       it('should deselect all options when model is emptied', function() {
         createMultiSelect();
-         scope.$apply(function() {
+        scope.$apply(function() {
           scope.values = [{name: 'A'}, {name: 'B'}];
           scope.selected = [scope.values[0]];
         });
@@ -1156,7 +1217,7 @@ describe('select', function() {
         });
 
         expect(element.find('option')[0].selected).toEqual(false);
-      })
+      });
     });
 
 
@@ -1198,6 +1259,55 @@ describe('select', function() {
         });
         expect(element).toBeValid();
       });
+
+
+      it('should treat an empty array as invalid when `multiple` attribute used', function() {
+        createSelect({
+          'ng-model': 'value',
+          'ng-options': 'item.name for item in values',
+          'ng-required': 'required',
+          'multiple': ''
+        }, true);
+
+        scope.$apply(function() {
+          scope.value = [];
+          scope.values = [{name: 'A', id: 1}, {name: 'B', id: 2}];
+          scope.required = true;
+        });
+        expect(element).toBeInvalid();
+
+        scope.$apply(function() {
+          // ngModelWatch does not set objectEquality flag
+          // array must be replaced in order to trigger $formatters
+          scope.value = [scope.values[0]];
+        });
+        expect(element).toBeValid();
+      });
+
+
+      it('should allow falsy values as values', function() {
+        createSelect({
+          'ng-model': 'value',
+          'ng-options': 'item.value as item.name for item in values',
+          'ng-required': 'required'
+        }, true);
+
+        scope.$apply(function() {
+          scope.values = [{name: 'True', value: true}, {name: 'False', value: false}];
+          scope.required = false;
+        });
+
+        element.val('1');
+        browserTrigger(element, 'change');
+        expect(element).toBeValid();
+        expect(scope.value).toBe(false);
+
+        scope.$apply(function() {
+          scope.required = true;
+        });
+        expect(element).toBeValid();
+        expect(scope.value).toBe(false);
+      });
     });
   });
 
@@ -1215,7 +1325,7 @@ describe('select', function() {
     });
 
     it('should set value even if self closing HTML', function() {
-      scope.x = 'hello'
+      scope.x = 'hello';
       compile('<select ng-model="x"><option>hello</select>');
       expect(element).toEqualSelect(['hello']);
     });
@@ -1232,5 +1342,15 @@ describe('select', function() {
       expect(element.find('span').text()).toBe('success');
       dealoc(element);
     }));
+
+    it('should throw an exception if an option value interpolates to "hasOwnProperty"', function() {
+      scope.hasOwnPropertyOption = "hasOwnProperty";
+      expect(function() {
+        compile('<select ng-model="x">'+
+                  '<option>{{hasOwnPropertyOption}}</option>'+
+                '</select>');
+      }).toThrowMinErr('ng','badname', 'hasOwnProperty is not a valid "option value" name');
+    });
+
   });
 });

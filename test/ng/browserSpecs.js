@@ -18,7 +18,7 @@ function MockWindow() {
   };
 
   this.addEventListener = function(name, listener) {
-    if (isUndefined(events[name])) events[name] = [];
+    if (angular.isUndefined(events[name])) events[name] = [];
     events[name].push(listener);
   };
 
@@ -49,7 +49,7 @@ function MockWindow() {
 function MockDocument() {
   var self = this;
 
-  this[0] = window.document
+  this[0] = window.document;
   this.basePath = '/';
 
   this.find = function(name) {
@@ -62,15 +62,15 @@ function MockDocument() {
             throw new Error(name);
           }
         }
-      }
+      };
     } else {
       throw new Error(name);
     }
-  }
+  };
 }
 
 describe('browser', function() {
-
+  /* global Browser: false */
   var browser, fakeWindow, fakeDocument, logs, scripts, removedScripts, sniffer;
 
   beforeEach(function() {
@@ -287,7 +287,7 @@ describe('browser', function() {
       it('should default path in cookie to "" (empty string)', function () {
         browser.cookies('cookie', 'bender');
         // This only fails in Safari and IE when cookiePath returns undefined
-        // Where it now succeeds since baseHref return '' instead of undefined         
+        // Where it now succeeds since baseHref return '' instead of undefined
         expect(document.cookie).toEqual('cookie=bender');
       });
     });
@@ -535,9 +535,32 @@ describe('browser', function() {
       fakeWindow.setTimeout.flush();
       expect(callback).toHaveBeenCalledWith('http://server.new');
 
+      callback.reset();
+
       fakeWindow.fire('popstate');
       fakeWindow.fire('hashchange');
-      expect(callback).toHaveBeenCalledOnce();
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    describe('after an initial location change by browser.url method when neither history nor hashchange supported', function() {
+      beforeEach(function() {
+        sniffer.history = false;
+        sniffer.hashchange = false;
+        browser.url("http://server.current");
+      });
+
+      it('should fire callback with the correct URL on location change outside of angular', function() {
+        browser.onUrlChange(callback);
+
+        fakeWindow.location.href = 'http://server.new';
+        fakeWindow.setTimeout.flush();
+        expect(callback).toHaveBeenCalledWith('http://server.new');
+
+        fakeWindow.fire('popstate');
+        fakeWindow.fire('hashchange');
+        expect(callback).toHaveBeenCalledOnce();
+      });
+
     });
 
     it('should not fire urlChange if changed by browser.url method (polling)', function() {
@@ -585,6 +608,11 @@ describe('browser', function() {
 
       fakeDocument.basePath = 'http://host.com/base/path/index.html';
       expect(browser.baseHref()).toEqual('/base/path/index.html');
+    });
+
+    it('should remove domain from <base href> beginning with \'//\'', function() {
+      fakeDocument.basePath = '//google.com/base/path/';
+      expect(browser.baseHref()).toEqual('/base/path/');
     });
   });
 });

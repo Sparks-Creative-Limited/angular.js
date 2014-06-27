@@ -16,7 +16,7 @@ describe('$controller', function() {
   describe('provider', function() {
 
     it('should allow registration of controllers', function() {
-      var FooCtrl = function($scope) { $scope.foo = 'bar' },
+      var FooCtrl = function($scope) { $scope.foo = 'bar'; },
         scope = {},
         ctrl;
 
@@ -29,8 +29,8 @@ describe('$controller', function() {
 
 
     it('should allow registration of map of controllers', function() {
-      var FooCtrl = function($scope) { $scope.foo = 'foo' },
-          BarCtrl = function($scope) { $scope.bar = 'bar' },
+      var FooCtrl = function($scope) { $scope.foo = 'foo'; },
+          BarCtrl = function($scope) { $scope.bar = 'bar'; },
           scope = {},
           ctrl;
 
@@ -47,7 +47,7 @@ describe('$controller', function() {
 
 
     it('should allow registration of controllers annotated with arrays', function() {
-      var FooCtrl = function($scope) { $scope.foo = 'bar' },
+      var FooCtrl = function($scope) { $scope.foo = 'bar'; },
           scope = {},
           ctrl;
 
@@ -56,6 +56,13 @@ describe('$controller', function() {
 
       expect(scope.foo).toBe('bar');
       expect(ctrl instanceof FooCtrl).toBe(true);
+    });
+
+
+    it('should throw an exception if a controller is called "hasOwnProperty"', function () {
+      expect(function() {
+        $controllerProvider.register('hasOwnProperty', function($scope) {});
+      }).toThrowMinErr('ng', 'badname', "hasOwnProperty is not a valid controller name");
     });
   });
 
@@ -131,7 +138,7 @@ describe('$controller', function() {
 
       expect(function() {
         $controller('a.b.FooCtrl as foo');
-      }).toThrow("[$controller:noscp] Cannot export controller 'a.b.FooCtrl' as 'foo'! No $scope object provided via `locals`.");
+      }).toThrowMinErr("$controller", "noscp", "Cannot export controller 'a.b.FooCtrl' as 'foo'! No $scope object provided via `locals`.");
 
     });
   });

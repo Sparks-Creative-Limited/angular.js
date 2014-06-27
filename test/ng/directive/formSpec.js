@@ -1,3 +1,4 @@
+/* global FormController: false */
 'use strict';
 
 describe('form', function() {
@@ -36,18 +37,23 @@ describe('form', function() {
   });
 
 
-  it('should remove the widget when element removed', function() {
+  it('should remove form control references from the form when nested control is removed from the DOM', function() {
     doc = $compile(
       '<form name="myForm">' +
-        '<input type="text" name="alias" ng-model="value" store-model-ctrl/>' +
+        '<input ng-if="inputPresent" name="alias" ng-model="value" store-model-ctrl/>' +
       '</form>')(scope);
+    scope.inputPresent = true;
+    scope.$digest();
 
     var form = scope.myForm;
     control.$setValidity('required', false);
     expect(form.alias).toBe(control);
     expect(form.$error.required).toEqual([control]);
 
-    doc.find('input').remove();
+    // remove nested control
+    scope.inputPresent = false;
+    scope.$apply();
+
     expect(form.$error.required).toBe(false);
     expect(form.alias).toBeUndefined();
   });
@@ -63,6 +69,17 @@ describe('form', function() {
     expect(scope.myForm.alias).toBeDefined();
   });
 
+  it('should use ngForm value as form name when nested inside form', function () {
+    doc = $compile(
+      '<form name="myForm">' +
+        '<div ng-form="nestedForm"><input type="text" name="alias" ng-model="value"/></div>' +
+      '</form>')(scope);
+
+    expect(scope.myForm).toBeDefined();
+    expect(scope.myForm.nestedForm).toBeDefined();
+    expect(scope.myForm.nestedForm.alias).toBeDefined();
+  });
+
 
   it('should publish form to scope when name attr is defined', function() {
     doc = $compile('<form name="myForm"></form>')(scope);
@@ -72,10 +89,11 @@ describe('form', function() {
   });
 
 
-  it('should allow form name to be an expression', function() {
+  it('should support expression in form name', function() {
     doc = $compile('<form name="obj.myForm"></form>')(scope);
 
-    expect(scope['obj.myForm']).toBeTruthy();
+    expect(scope.obj).toBeDefined();
+    expect(scope.obj.myForm).toBeTruthy();
   });
 
 
@@ -125,6 +143,69 @@ describe('form', function() {
   });
 
 
+  it('should throw an exception if an input has name="hasOwnProperty"', function() {
+    doc = jqLite(
+      '<form name="form">'+
+        '<input name="hasOwnProperty" ng-model="some" />'+
+        '<input name="other" ng-model="someOther" />'+
+      '</form>');
+    expect(function() {
+      $compile(doc)(scope);
+    }).toThrowMinErr('ng', 'badname');
+  });
+
+  describe('triggering commit value on submit', function () {
+    it('should trigger update on form submit', function() {
+      var form = $compile(
+          '<form name="test" ng-model-options="{ updateOn: \'\' }" >' +
+            '<input type="text" ng-model="name" />' +
+          '</form>')(scope);
+      scope.$digest();
+
+      var inputElm = form.find('input').eq(0);
+      changeInputValue(inputElm, 'a');
+      expect(scope.name).toEqual(undefined);
+      browserTrigger(form, 'submit');
+      expect(scope.name).toEqual('a');
+      dealoc(form);
+    });
+
+    it('should trigger update on form submit with nested forms', function() {
+      var form = $compile(
+          '<form name="test" ng-model-options="{ updateOn: \'\' }" >' +
+            '<div class="ng-form" name="child">' +
+              '<input type="text" ng-model="name" />' +
+            '</div>' +
+          '</form>')(scope);
+      scope.$digest();
+
+      var inputElm = form.find('input').eq(0);
+      changeInputValue(inputElm, 'a');
+      expect(scope.name).toEqual(undefined);
+      browserTrigger(form, 'submit');
+      expect(scope.name).toEqual('a');
+      dealoc(form);
+    });
+
+    it('should trigger update before ng-submit is invoked', function() {
+      var form = $compile(
+          '<form name="test" ng-submit="submit()" ' +
+              'ng-model-options="{ updateOn: \'\' }" >' +
+            '<input type="text" ng-model="name" />' +
+          '</form>')(scope);
+      scope.$digest();
+
+      var inputElm = form.find('input').eq(0);
+      changeInputValue(inputElm, 'a');
+      scope.submit = jasmine.createSpy('submit').andCallFake(function() {
+        expect(scope.name).toEqual('a');
+      });
+      browserTrigger(form, 'submit');
+      expect(scope.submit).toHaveBeenCalled();
+      dealoc(form);
+    });
+  });
+
   describe('preventing default submission', function() {
 
     it('should prevent form submission', function() {
@@ -148,7 +229,7 @@ describe('form', function() {
 
       scope.submitMe = function() {
         submitted = true;
-      }
+      };
 
       if (msie!=8) addEventListenerFn(doc[0], 'submit', assertPreventDefaultListener);
 
@@ -187,13 +268,13 @@ describe('form', function() {
         // yes, I know, scope methods should not do direct DOM manipulation, but I wanted to keep
         // this test small. Imagine that the destroy action will cause a model change (e.g.
         // $location change) that will cause some directive to destroy the dom (e.g. ngView+$route)
-        doc.html('');
+        doc.empty();
         destroyed = true;
-      }
+      };
 
       scope.submitMe = function() {
         submitted = true;
-      }
+      };
 
       var assertPreventDefaultListener = function(e) {
         reloadPrevented = e.defaultPrevented || (e.returnValue === false);
@@ -314,14 +395,39 @@ describe('form', function() {
     });
 
 
-    it('should deregister a input when its removed from DOM', function() {
+    it('should deregister a child form whose name is an expression when its DOM is removed', function() {
+      doc = jqLite(
+        '<form name="parent">' +
+          '<div class="ng-form" name="child.form">' +
+          '<input ng:model="modelA" name="inputA" required>' +
+          '</div>' +
+          '</form>');
+      $compile(doc)(scope);
+      scope.$apply();
+
+      var parent = scope.parent,
+        child = scope.child.form;
+
+      expect(parent).toBeDefined();
+      expect(child).toBeDefined();
+      expect(parent.$error.required).toEqual([child]);
+      doc.children().remove(); //remove child
+
+      expect(parent.child).toBeUndefined();
+      expect(scope.child.form).toBeUndefined();
+      expect(parent.$error.required).toBe(false);
+    });
+
+
+    it('should deregister a input when it is removed from DOM', function() {
       doc = jqLite(
         '<form name="parent">' +
           '<div class="ng-form" name="child">' +
-            '<input ng:model="modelA" name="inputA" required>' +
+            '<input ng-if="inputPresent" ng-model="modelA" name="inputA" required>' +
           '</div>' +
         '</form>');
       $compile(doc)(scope);
+      scope.inputPresent = true;
       scope.$apply();
 
       var parent = scope.parent,
@@ -336,7 +442,10 @@ describe('form', function() {
       expect(doc.hasClass('ng-invalid-required')).toBe(true);
       expect(doc.find('div').hasClass('ng-invalid')).toBe(true);
       expect(doc.find('div').hasClass('ng-invalid-required')).toBe(true);
-      doc.find('input').remove(); //remove child
+
+      //remove child input
+      scope.inputPresent = false;
+      scope.$apply();
 
       expect(parent.$error.required).toBe(false);
       expect(child.$error.required).toBe(false);
@@ -377,7 +486,7 @@ describe('form', function() {
       expect(parent.$error.myRule).toBe(false);
       expect(child.$error.myRule).toBe(false);
     });
-  })
+  });
 
 
   describe('validation', function() {
@@ -536,4 +645,84 @@ describe('form', function() {
       expect(nestedInputCtrl.$dirty).toBe(false);
     });
   });
+});
+
+describe('form animations', function() {
+  beforeEach(module('ngAnimateMock'));
+
+  function assertValidAnimation(animation, event, className) {
+    expect(animation.event).toBe(event);
+    expect(animation.args[1]).toBe(className);
+  }
+
+  var doc, scope, form;
+  beforeEach(inject(function($rootScope, $compile, $rootElement, $animate) {
+    scope = $rootScope.$new();
+    doc = jqLite('<form name="myForm"></form>');
+    $rootElement.append(doc);
+    $compile(doc)(scope);
+    $animate.queue = [];
+    form = scope.myForm;
+  }));
+
+  afterEach(function() {
+    dealoc(doc);
+  });
+
+  it('should trigger an animation when invalid', inject(function($animate) {
+    form.$setValidity('required', false);
+
+    assertValidAnimation($animate.queue[0], 'removeClass', 'ng-valid');
+    assertValidAnimation($animate.queue[1], 'addClass', 'ng-invalid');
+    assertValidAnimation($animate.queue[2], 'removeClass', 'ng-valid-required');
+    assertValidAnimation($animate.queue[3], 'addClass', 'ng-invalid-required');
+  }));
+
+  it('should trigger an animation when valid', inject(function($animate) {
+    form.$setValidity('required', false);
+
+    $animate.queue = [];
+
+    form.$setValidity('required', true);
+
+    assertValidAnimation($animate.queue[0], 'removeClass', 'ng-invalid');
+    assertValidAnimation($animate.queue[1], 'addClass', 'ng-valid');
+    assertValidAnimation($animate.queue[2], 'removeClass', 'ng-invalid-required');
+    assertValidAnimation($animate.queue[3], 'addClass', 'ng-valid-required');
+  }));
+
+  it('should trigger an animation when dirty', inject(function($animate) {
+    form.$setDirty();
+
+    assertValidAnimation($animate.queue[0], 'removeClass', 'ng-pristine');
+    assertValidAnimation($animate.queue[1], 'addClass', 'ng-dirty');
+  }));
+
+  it('should trigger an animation when pristine', inject(function($animate) {
+    form.$setDirty();
+
+    $animate.queue = [];
+
+    form.$setPristine();
+
+    assertValidAnimation($animate.queue[0], 'removeClass', 'ng-dirty');
+    assertValidAnimation($animate.queue[1], 'addClass', 'ng-pristine');
+  }));
+
+  it('should trigger custom errors as addClass/removeClass when invalid/valid', inject(function($animate) {
+    form.$setValidity('custom-error', false);
+
+    assertValidAnimation($animate.queue[0], 'removeClass', 'ng-valid');
+    assertValidAnimation($animate.queue[1], 'addClass', 'ng-invalid');
+    assertValidAnimation($animate.queue[2], 'removeClass', 'ng-valid-custom-error');
+    assertValidAnimation($animate.queue[3], 'addClass', 'ng-invalid-custom-error');
+
+    $animate.queue = [];
+    form.$setValidity('custom-error', true);
+
+    assertValidAnimation($animate.queue[0], 'removeClass', 'ng-invalid');
+    assertValidAnimation($animate.queue[1], 'addClass', 'ng-valid');
+    assertValidAnimation($animate.queue[2], 'removeClass', 'ng-invalid-custom-error');
+    assertValidAnimation($animate.queue[3], 'addClass', 'ng-valid-custom-error');
+  }));
 });

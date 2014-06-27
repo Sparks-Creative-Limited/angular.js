@@ -10,26 +10,31 @@ angularFiles = {
     'src/auto/injector.js',
 
     'src/ng/anchorScroll.js',
-    'src/ng/animation.js',
-    'src/ng/animator.js',
+    'src/ng/animate.js',
+    'src/ng/asyncCallback.js',
     'src/ng/browser.js',
     'src/ng/cacheFactory.js',
     'src/ng/compile.js',
     'src/ng/controller.js',
     'src/ng/document.js',
     'src/ng/exceptionHandler.js',
+    'src/ng/http.js',
+    'src/ng/httpBackend.js',
     'src/ng/interpolate.js',
+    'src/ng/interval.js',
+    'src/ng/locale.js',
     'src/ng/location.js',
     'src/ng/log.js',
     'src/ng/parse.js',
     'src/ng/q.js',
+    'src/ng/raf.js',
     'src/ng/rootScope.js',
+    'src/ng/sanitizeUri.js',
+    'src/ng/sce.js',
     'src/ng/sniffer.js',
-    'src/ng/window.js',
-    'src/ng/http.js',
-    'src/ng/httpBackend.js',
-    'src/ng/locale.js',
     'src/ng/timeout.js',
+    'src/ng/urlUtils.js',
+    'src/ng/window.js',
 
     'src/ng/filter.js',
     'src/ng/filter/filter.js',
@@ -39,7 +44,7 @@ angularFiles = {
 
     'src/ng/directive/directives.js',
     'src/ng/directive/a.js',
-    'src/ng/directive/booleanAttrs.js',
+    'src/ng/directive/attrs.js',
     'src/ng/directive/form.js',
     'src/ng/directive/input.js',
     'src/ng/directive/ngBind.js',
@@ -63,23 +68,43 @@ angularFiles = {
     'src/ng/directive/style.js'
   ],
 
-  'angularSrcModules': [
-    'src/ngCookies/cookies.js',
-    'src/ngResource/resource.js',
-    'src/ngRoute/routeUtils.js',
-    'src/ngRoute/route.js',
-    'src/ngRoute/routeParams.js',
-    'src/ngRoute/directive/ngView.js',
-    'src/ngSanitize/sanitize.js',
-    'src/ngSanitize/directive/ngBindHtml.js',
-    'src/ngSanitize/filter/linky.js',
-    'src/ngMock/angular-mocks.js',
-    'src/ngMobile/mobile.js',
-    'src/ngMobile/swipe.js',
-    'src/ngMobile/directive/ngClick.js',
-    'src/ngMobile/directive/ngSwipe.js',
-    'docs/components/angular-bootstrap/bootstrap.js'
+  'angularLoader': [
+    'src/minErr.js',
+    'src/loader.js'
   ],
+
+  'angularModules': {
+    'ngAnimate': [
+      'src/ngAnimate/animate.js'
+    ],
+    'ngCookies': [
+      'src/ngCookies/cookies.js'
+    ],
+    'ngMessages': [
+      'src/ngMessages/messages.js'
+    ],
+    'ngResource': [
+      'src/ngResource/resource.js'
+    ],
+    'ngRoute': [
+      'src/ngRoute/route.js',
+      'src/ngRoute/routeParams.js',
+      'src/ngRoute/directive/ngView.js'
+    ],
+    'ngSanitize': [
+      'src/ngSanitize/sanitize.js',
+      'src/ngSanitize/filter/linky.js'
+    ],
+    'ngMock': [
+      'src/ngMock/angular-mocks.js'
+    ],
+    'ngTouch': [
+      'src/ngTouch/touch.js',
+      'src/ngTouch/swipe.js',
+      'src/ngTouch/directive/ngClick.js',
+      'src/ngTouch/directive/ngSwipe.js'
+    ],
+  },
 
   'angularScenario': [
     'src/ngScenario/Scenario.js',
@@ -99,31 +124,30 @@ angularFiles = {
   ],
 
   'angularTest': [
-    'test/testabilityPatch.js',
-    'test/matchers.js',
+    'test/helpers/*.js',
     'test/ngScenario/*.js',
     'test/ngScenario/output/*.js',
     'test/*.js',
     'test/auto/*.js',
     'test/ng/**/*.js',
+    'test/ngAnimate/*.js',
+    'test/ngMessages/*.js',
     'test/ngCookies/*.js',
     'test/ngResource/*.js',
     'test/ngRoute/**/*.js',
     'test/ngSanitize/**/*.js',
     'test/ngMock/*.js',
-    'test/ngMobile/**/*.js'
+    'test/ngTouch/**/*.js'
   ],
 
   'karma': [
-    'components/jquery/jquery.js',
+    'bower_components/jquery/jquery.js',
     'test/jquery_remove.js',
     '@angularSrc',
     'src/publishExternalApis.js',
     '@angularSrcModules',
     '@angularScenario',
     '@angularTest',
-    'example/personalLog/*.js',
-    'example/personalLog/test/*.js'
   ],
 
   'karmaExclude': [
@@ -141,27 +165,23 @@ angularFiles = {
     'build/angular.js',
     '@angularSrcModules',
     'src/ngScenario/browserTrigger.js',
-    'test/matchers.js',
-    'test/testabilityPatch.js',
+    'test/helpers/*.js',
     'test/ngMock/*.js',
     'test/ngCookies/*.js',
     'test/ngRoute/**/*.js',
     'test/ngResource/*.js',
     'test/ngSanitize/**/*.js',
-    'test/ngMobile/**/*.js'
+    'test/ngTouch/**/*.js'
   ],
 
   'karmaJquery': [
-    'components/jquery/jquery.js',
+    'bower_components/jquery/jquery.js',
     'test/jquery_alias.js',
     '@angularSrc',
     'src/publishExternalApis.js',
     '@angularSrcModules',
     '@angularScenario',
     '@angularTest',
-    'example/personalLog/*.js',
-
-    'example/personalLog/test/*.js'
   ],
 
   'karmaJqueryExclude': [
@@ -170,6 +190,17 @@ angularFiles = {
     'test/jquery_remove.js'
   ]
 };
+
+angularFiles['angularSrcModules'] = [].concat(
+  angularFiles['angularModules']['ngAnimate'],
+  angularFiles['angularModules']['ngMessages'],
+  angularFiles['angularModules']['ngCookies'],
+  angularFiles['angularModules']['ngResource'],
+  angularFiles['angularModules']['ngRoute'],
+  angularFiles['angularModules']['ngSanitize'],
+  angularFiles['angularModules']['ngMock'],
+  angularFiles['angularModules']['ngTouch']
+);
 
 if (exports) {
   exports.files = angularFiles;
