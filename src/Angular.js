@@ -245,12 +245,12 @@ function forEach(obj, iterator, context) {
           iterator.call(context, obj[key], key);
         }
       }
-    } else if (obj.forEach && obj.forEach !== forEach) {
-      obj.forEach(iterator, context);
-    } else if (isArrayLike(obj)) {
+    } else if (isArray(obj) || isArrayLike(obj)) {
       for (key = 0, length = obj.length; key < length; key++) {
         iterator.call(context, obj[key], key);
       }
+    } else if (obj.forEach && obj.forEach !== forEach) {
+        obj.forEach(iterator, context);
     } else {
       for (key in obj) {
         if (obj.hasOwnProperty(key)) {
@@ -772,7 +772,8 @@ function copy(source, destination, stackSource, stackDest) {
       } else if (isRegExp(source)) {
         destination = new RegExp(source.source);
       } else if (isObject(source)) {
-        destination = copy(source, {}, stackSource, stackDest);
+        var emptyObject = Object.create(Object.getPrototypeOf(source));
+        destination = copy(source, emptyObject, stackSource, stackDest);
       }
     }
   } else {
@@ -807,12 +808,14 @@ function copy(source, destination, stackSource, stackDest) {
         delete destination[key];
       });
       for ( var key in source) {
-        result = copy(source[key], null, stackSource, stackDest);
-        if (isObject(source[key])) {
-          stackSource.push(source[key]);
-          stackDest.push(result);
+        if(source.hasOwnProperty(key)) {
+          result = copy(source[key], null, stackSource, stackDest);
+          if (isObject(source[key])) {
+            stackSource.push(source[key]);
+            stackDest.push(result);
+          }
+          destination[key] = result;
         }
-        destination[key] = result;
       }
       setHashKey(destination,h);
     }
